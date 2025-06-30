@@ -1,0 +1,2 @@
+PROCESSING_MODE = None
+CHINESE_MODE = None 
