@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 from ocr_utils import setup_tesseract_chinese, detect_chinese_text_ocr, contains_chinese_characters
 from settings import CHINESE_MODE
+import time
 
 def create_advanced_mask_original(img, regions=None, auto_detect=True):
     mask = np.zeros(img.shape[:2], np.uint8)
@@ -69,19 +70,19 @@ def create_advanced_mask_original(img, regions=None, auto_detect=True):
     mask = cv2.GaussianBlur(mask, (5, 5), 0)
     return mask
 
-def create_chinese_optimized_mask(img):
+def create_chinese_optimized_mask(img, debug_mask_prefix=None):
     mask = np.zeros(img.shape[:2], np.uint8)
-    print("\ud83c\udde8\ud83c\uddf3 \u0110ang ph\u00e1t hi\u1ec7n text ti\u1ebfng Trung...")
+    print("\U0001F1E8\U0001F1F3 Đang phát hiện text tiếng Trung...")
     lang = setup_tesseract_chinese()
     if lang:
-        print("\ud83c\udf24 S\u1eed d\u1ee5ng OCR \u0111\u1ec3 ph\u00e1t hi\u1ec7n text...")
+        print("\U0001F324 Sử dụng OCR để phát hiện text...")
         chinese_regions, confidences = detect_chinese_text_ocr(img, lang)
         for i, (x, y, w, h) in enumerate(chinese_regions):
             confidence = confidences[i]
             if confidence > 20:
                 mask[y:y+h, x:x+w] = 255
-                print(f"\u2705 OCR - V\u00f9ng text: ({x},{y},{w},{h}) - confidence: {confidence}%")
-    print("\ud83d\udc41\ufe0f  S\u1eed d\u1ee5ng Computer Vision...")
+                print(f"\u2705 OCR - Vùng text: ({x},{y},{w},{h}) - confidence: {confidence}%")
+    print("\U0001F441\uFE0F  Sử dụng Computer Vision...")
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     visual_masks = []
@@ -112,43 +113,26 @@ def create_chinese_optimized_mask(img):
         visual_masks.append(color_mask)
     edges = cv2.Canny(gray, 30, 100)
     visual_masks.append(edges)
-    combined_visual = np.zeros_like(gray)
-    for vm in visual_masks:
-        combined_visual = cv2.bitwise_or(combined_visual, vm)
-    kernels = [
-        cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)),
-        cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)),
-        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    ]
-    for kernel in kernels:
-        combined_visual = cv2.morphologyEx(combined_visual, cv2.MORPH_CLOSE, kernel)
-        combined_visual = cv2.dilate(combined_visual, kernel, iterations=1)
-    contours, _ = cv2.findContours(combined_visual, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if area > 30:
-            x, y, w, h = cv2.boundingRect(contour)
-            aspect_ratio = w / h if h > 0 else 0
-            if 0.1 < aspect_ratio < 15 and w > 5 and h > 5:
-                padding = 5
-                x = max(0, x - padding)
-                y = max(0, y - padding)
-                w = min(img.shape[1] - x, w + 2*padding)
-                h = min(img.shape[0] - y, h + 2*padding)
-                mask[y:y+h, x:x+w] = 255
-                print(f"\u2705 CV - V\u00f9ng text: ({x},{y},{w},{h})")
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    mask = cv2.dilate(mask, kernel, iterations=2)
+    for vmask in visual_masks:
+        mask = cv2.bitwise_or(mask, vmask)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    mask = cv2.erode(mask, kernel, iterations=1)
     mask = cv2.GaussianBlur(mask, (5, 5), 0)
-    _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+    if debug_mask_prefix is not None:
+        ts = int(time.time() * 1000)
+        mask_path = f"{debug_mask_prefix}_mask_{ts}.png"
+        cv2.imwrite(mask_path, mask)
+        print(f"[DEBUG] Đã lưu mask tiếng Trung: {mask_path}")
     return mask
 
-def create_advanced_mask(img, regions=None, auto_detect=True):
+def create_advanced_mask(img, regions=None, auto_detect=True, debug_mask_prefix=None):
     from settings import CHINESE_MODE
-    # Nếu CHINESE_MODE là None, mặc định là True (không gọi GUI)
     chinese_mode = CHINESE_MODE if CHINESE_MODE is not None else True
+    # Nếu có regions (tức là chọn vùng thủ công), luôn dùng mask theo vùng
+    if regions is not None and not auto_detect:
+        return create_advanced_mask_original(img, regions, auto_detect)
+    # Nếu không, mới dùng auto-detect (mask tiếng Trung hoặc nâng cao)
     if chinese_mode:
-        return create_chinese_optimized_mask(img)
+        return create_chinese_optimized_mask(img, debug_mask_prefix=debug_mask_prefix)
     else:
         return create_advanced_mask_original(img, regions, auto_detect) 
