@@ -37,7 +37,7 @@ def main():
         video_exts = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.m4v'}
         image_exts = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.gif'}
         if file_ext in video_exts:
-            success = process_video_optimized(file_path, output_dir)
+            success = process_video_optimized(file_path, output_dir, regions=None, method='auto')
         elif file_ext in image_exts:
             success = process_single_image_chinese(file_path, output_dir)
         else:

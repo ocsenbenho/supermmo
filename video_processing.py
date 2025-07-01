@@ -6,7 +6,7 @@ import sys
 import subprocess
 from masking import create_advanced_mask
 from inpainting import advanced_inpaint
-from gui_utils import get_processing_method, RegionSelector
+# from gui_utils import get_processing_method, RegionSelector  # XÓA DÒNG NÀY
 from settings import PROCESSING_MODE, CHINESE_MODE
 from parallel_utils import run_parallel_map
 
@@ -59,7 +59,7 @@ def _process_single_frame(args):
     except Exception as e:
         return (frame_idx, False, str(e))
 
-def process_video_optimized(video_path, output_dir, log_callback=None, progress_callback=None):
+def process_video_optimized(video_path, output_dir, log_callback=None, progress_callback=None, regions=None, method=None):
     global PROCESSING_MODE, CHINESE_MODE
     def log(msg):
         if log_callback:
@@ -83,32 +83,11 @@ def process_video_optimized(video_path, output_dir, log_callback=None, progress_
         log("❌ Thông tin video không hợp lệ")
         vid.release()
         return False
-    if PROCESSING_MODE is None:
-        method = get_processing_method()
-        if method is None:
-            vid.release()
-            return False
-        PROCESSING_MODE = method
-        log(f"✅ Đã chọn phương pháp: {'Tự động' if PROCESSING_MODE else 'Thủ công'}")
-        log("🔄 Sẽ áp dụng cho toàn bộ video...")
+    if method is not None and (method == 'auto' or regions is not None):
+        # OK, xử lý tiếp
+        pass
     else:
-        method = PROCESSING_MODE
-    regions = []
-    if method == False:
-        log("👆 Chọn vùng cần xóa từ frame đầu tiên...")
-        ret, first_frame = vid.read()
-        if not ret:
-            log("❌ Không thể đọc frame đầu tiên")
-            vid.release()
-            return False
-        vid.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        selector = RegionSelector()
-        regions = selector.select_regions(first_frame)
-        if not regions:
-            log("❌ Không có vùng nào được chọn")
-            vid.release()
-            return False
-        log(f"✅ Đã chọn {len(regions)} vùng để xóa cho TOÀN BỘ VIDEO")
+        raise RuntimeError('Vui lòng truyền regions và method từ GUI, không gọi GUI trong worker!')
     if CHINESE_MODE:
         log("🇨🇳 Chế độ: TIẾNG TRUNG TỐI ƯU")
     elif CHINESE_MODE == False:
@@ -172,16 +151,17 @@ def process_video_optimized(video_path, output_dir, log_callback=None, progress_
         if test_video_writer(width, height, fps, test_output, codec):
             log(f"✅ Codec {codec} hoạt động tốt!")
             suffix = "_chinese_optimized" if CHINESE_MODE else "_optimized"
-            output_path = os.path.join(output_dir, f"{video_name}{suffix}{ext}")
+            output_path_candidate = os.path.join(output_dir, f"{video_name}{suffix}{ext}")
             successful_codec = codec
             if os.path.exists(test_output):
                 os.remove(test_output)
+            output_path = output_path_candidate
             break
         else:
             log(f"❌ Codec {codec} không hoạt động")
             if os.path.exists(test_output):
                 os.remove(test_output)
-    if not successful_codec:
+    if not successful_codec or not output_path:
         log("❌ Không tìm thấy codec nào hoạt động")
         return False
     try:
@@ -206,7 +186,7 @@ def process_video_optimized(video_path, output_dir, log_callback=None, progress_
             if progress_callback and len(frame_paths) > 0:
                 update_progress(90 + (i / len(frame_paths)) * 10)  # 90-100% cho ghi video
         video_writer.release()
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+        if output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             log(f"✅ Video đã được tạo: {os.path.getsize(output_path)} bytes")
         else:
             log("❌ File video không được tạo hoặc rỗng")
