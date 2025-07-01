@@ -116,8 +116,14 @@ class VideoRemoverApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title('RemoveText - Enhanced with Existing Modules')
-        self.geometry('900x700')
-        self.minsize(700, 500)
+        width = 450
+        height = 600
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = int((screen_width - width) / 2)
+        y = int((screen_height - height) / 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+        self.minsize(900, 1200)
         self.resizable(True, True)
         self.selected_video = tk.StringVar()
         self.output_dir = tk.StringVar(value=DEFAULT_OUTPUT_DIR)
@@ -150,6 +156,7 @@ class VideoRemoverApp(tk.Tk):
             return False
 
     def create_widgets(self):
+        bold_font = ('Arial', 11, 'bold')
         # Sử dụng Notebook để tạo tab
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill='both', expand=True, padx=0, pady=0)
@@ -169,69 +176,69 @@ class VideoRemoverApp(tk.Tk):
         # File selection
         frame_video = tk.Frame(main_scrollable)
         frame_video.pack(fill='x', padx=20, pady=(20, 0))
-        tk.Label(frame_video, text='File video:').pack(side='left')
-        self.video_entry = tk.Entry(frame_video, textvariable=self.selected_video, width=50, state='readonly')
+        tk.Label(frame_video, text='File video:', font=bold_font).pack(side='left')
+        self.video_entry = tk.Entry(frame_video, textvariable=self.selected_video, width=50, state='readonly', font=bold_font)
         self.video_entry.pack(side='left', padx=5)
-        tk.Button(frame_video, text='Chọn...', command=self.choose_video_file).pack(side='left')
+        tk.Button(frame_video, text='Chọn...', command=self.choose_video_file, font=bold_font).pack(side='left')
         # Output directory
         frame_output = tk.Frame(main_scrollable)
         frame_output.pack(fill='x', padx=20, pady=10)
-        tk.Label(frame_output, text='Thư mục lưu:').pack(side='left')
-        self.output_entry = tk.Entry(frame_output, textvariable=self.output_dir, width=40)
+        tk.Label(frame_output, text='Thư mục lưu:', font=bold_font).pack(side='left')
+        self.output_entry = tk.Entry(frame_output, textvariable=self.output_dir, width=40, font=bold_font)
         self.output_entry.pack(side='left', padx=5)
-        tk.Button(frame_output, text='Chọn...', command=self.choose_output_dir).pack(side='left')
+        tk.Button(frame_output, text='Chọn...', command=self.choose_output_dir, font=bold_font).pack(side='left')
         # Region selection frame
-        region_frame = tk.LabelFrame(main_scrollable, text='Chọn vùng text', padx=5, pady=5)
+        region_frame = tk.LabelFrame(main_scrollable, text='Chọn vùng text', padx=5, pady=5, font=bold_font)
         region_frame.pack(fill='x', padx=20, pady=(0, 5))
-        tk.Button(region_frame, text='Xóa vùng đã chọn', command=self.clear_regions, width=15).pack(side='right', padx=5)
-        self.region_info = tk.Label(region_frame, text='Chưa chọn vùng nào', fg='red')
+        tk.Button(region_frame, text='Xóa vùng đã chọn', command=self.clear_regions, width=15, font=bold_font).pack(side='right', padx=5)
+        self.region_info = tk.Label(region_frame, text='Chưa chọn vùng nào', fg='red', font=bold_font)
         self.region_info.pack(side='left', padx=10)
         # Preview Canvas
-        preview_frame = tk.LabelFrame(main_scrollable, text='Preview & chọn vùng', padx=5, pady=5)
+        preview_frame = tk.LabelFrame(main_scrollable, text='Preview & chọn vùng', padx=5, pady=5, font=bold_font)
         preview_frame.pack(padx=20, pady=(0, 5))
         self.preview_canvas = tk.Canvas(preview_frame, width=800, height=450, bg='black')
         self.preview_canvas.pack()
         self.preview_canvas.bind('<ButtonPress-1>', self.on_canvas_mouse_down)
         self.preview_canvas.bind('<B1-Motion>', self.on_canvas_mouse_move)
         self.preview_canvas.bind('<ButtonRelease-1>', self.on_canvas_mouse_up)
-        tk.Button(preview_frame, text='Xóa vùng cuối', command=self.delete_last_region, bg='orange', fg='white').pack(side='left', padx=5)
+        tk.Button(preview_frame, text='Xóa vùng cuối', command=self.delete_last_region, bg='orange', fg='white', font=bold_font).pack(side='left', padx=5)
         # Processing method selection
-        method_frame = tk.LabelFrame(main_scrollable, text='Phương pháp xử lý', padx=5, pady=5)
+        method_frame = tk.LabelFrame(main_scrollable, text='Phương pháp xử lý', padx=5, pady=5, font=bold_font)
         method_frame.pack(fill='x', padx=20, pady=(0, 5))
         self.processing_method = tk.StringVar(value='advanced_modules' if self.has_advanced_modules else 'basic')
         if self.has_advanced_modules:
-            tk.Radiobutton(method_frame, text='Sử dụng modules nâng cao', variable=self.processing_method, value='advanced_modules').pack(side='left')
-            tk.Radiobutton(method_frame, text='Xử lý cơ bản', variable=self.processing_method, value='basic').pack(side='left')
+            tk.Radiobutton(method_frame, text='Sử dụng modules nâng cao', variable=self.processing_method, value='advanced_modules', font=bold_font).pack(side='left')
+            tk.Radiobutton(method_frame, text='Xử lý cơ bản', variable=self.processing_method, value='basic', font=bold_font).pack(side='left')
         else:
-            tk.Label(method_frame, text='Chỉ có phương pháp cơ bản', fg='orange').pack(side='left')
+            tk.Label(method_frame, text='Chỉ có phương pháp cơ bản', fg='orange', font=bold_font).pack(side='left')
         # Chinese mode toggle
-        chinese_frame = tk.LabelFrame(main_scrollable, text='Tối ưu tiếng Trung', padx=5, pady=5)
+        chinese_frame = tk.LabelFrame(main_scrollable, text='Tối ưu tiếng Trung', padx=5, pady=5, font=bold_font)
         chinese_frame.pack(fill='x', padx=20, pady=(0, 5))
         self.chinese_mode = tk.BooleanVar(value=True)
-        tk.Checkbutton(chinese_frame, text='Bật chế độ tiếng Trung', variable=self.chinese_mode).pack(side='left')
+        tk.Checkbutton(chinese_frame, text='Bật chế độ tiếng Trung', variable=self.chinese_mode, font=bold_font).pack(side='left')
         # Video cutting
-        cut_frame = tk.LabelFrame(main_scrollable, text='Cắt video', padx=5, pady=5)
+        cut_frame = tk.LabelFrame(main_scrollable, text='Cắt video', padx=5, pady=5, font=bold_font)
         cut_frame.pack(fill='x', padx=20, pady=(0, 5))
-        tk.Label(cut_frame, text='Số giây/đoạn:').pack(side='left')
-        self.cut_seconds = tk.Entry(cut_frame, width=8)
+        tk.Label(cut_frame, text='Số giây/đoạn:', font=bold_font).pack(side='left')
+        self.cut_seconds = tk.Entry(cut_frame, width=8, font=bold_font)
         self.cut_seconds.pack(side='left', padx=5)
-        tk.Button(cut_frame, text='Cắt video', command=self.start_cut_video).pack(side='left', padx=5)
-        tk.Button(cut_frame, text='Trích audio', command=self.start_extract_audio).pack(side='left', padx=5)
+        tk.Button(cut_frame, text='Cắt video', command=self.start_cut_video, font=bold_font).pack(side='left', padx=5)
+        tk.Button(cut_frame, text='Trích audio', command=self.start_extract_audio, font=bold_font).pack(side='left', padx=5)
         # Process button
-        self.process_btn = tk.Button(main_scrollable, text='Xử lý Text', command=self.start_processing, width=15, bg='green', fg='white')
+        self.process_btn = tk.Button(main_scrollable, text='Xử lý Text', command=self.start_processing, width=15, bg='green', fg='white', font=bold_font)
         self.process_btn.pack(pady=5)
         # Progress bar
         self.progress = ttk.Progressbar(main_scrollable, variable=self.progress_value, maximum=100, length=650)
         self.progress.pack(padx=20, pady=(0, 5))
         # Log area
-        log_frame = tk.LabelFrame(main_scrollable, text='Log', padx=5, pady=5)
+        log_frame = tk.LabelFrame(main_scrollable, text='Log', padx=5, pady=5, font=bold_font)
         log_frame.pack(fill='both', expand=True, padx=20, pady=(0, 10))
-        self.log_text = tk.Text(log_frame, height=8, wrap='word', bg='#f7f7f7')
+        self.log_text = tk.Text(log_frame, height=8, wrap='word', bg='#f7f7f7', font=bold_font)
         self.log_text.pack(fill='both', expand=True)
         # Status
-        self.status_label = tk.Label(main_scrollable, textvariable=self.status, fg='blue')
+        self.status_label = tk.Label(main_scrollable, textvariable=self.status, fg='blue', font=bold_font)
         self.status_label.pack(padx=20, pady=5)
-        self.notebook.add(main_frame, text='Chức năng chính')
+        self.notebook.add(main_frame, text='Chức năng chính',)
 
         # Tab 2: Theo dõi tool với scroll
         monitor_frame = tk.Frame(self.notebook)
@@ -244,9 +251,9 @@ class VideoRemoverApp(tk.Tk):
         monitor_canvas.create_window((0, 0), window=monitor_scrollable, anchor='nw')
         monitor_canvas.pack(side='left', fill='both', expand=True)
         monitor_scrollbar.pack(side='right', fill='y')
-        self.monitor_text = tk.Text(monitor_scrollable, height=30, bg='#222', fg='#0f0', font=('Consolas', 11))
+        self.monitor_text = tk.Text(monitor_scrollable, height=30, bg='#222', fg='#0f0', font=('Consolas', 11, 'bold'))
         self.monitor_text.pack(fill='both', expand=True)
-        self.notebook.add(monitor_frame, text='Theo dõi tool')
+        self.notebook.add(monitor_frame, text='Theo dõi tool',)
 
     def choose_video_file(self):
         filetypes = [("Video files", "*.mp4 *.avi *.mov *.mkv *.wmv *.flv *.m4v *.webm")]
@@ -302,7 +309,12 @@ class VideoRemoverApp(tk.Tk):
                 self.selected_regions.append([(int(x1/scale), int(y1/scale)), (int(x2/scale), int(y2/scale))])
                 self._canvas_rects.append(self._canvas_current_rect)
                 idx = len(self.selected_regions)
-                self.preview_canvas.create_text(x1+5, y1-10, text=str(idx), fill='yellow', anchor='nw', font=('Arial', 14, 'bold'))
+                # Vẽ số thứ tự nổi bật: outline trắng, text đỏ
+                font = ('Arial', 14, 'bold')
+                # Outline trắng
+                self.preview_canvas.create_text(x1+6, y1-9, text=str(idx), fill='white', anchor='nw', font=font)
+                # Text đỏ nổi bật
+                self.preview_canvas.create_text(x1+5, y1-10, text=str(idx), fill='red', anchor='nw', font=font)
                 self.region_info.config(text=f'Đã chọn {len(self.selected_regions)} vùng', fg='green')
             else:
                 self.preview_canvas.delete(self._canvas_current_rect)
@@ -397,17 +409,24 @@ class VideoRemoverApp(tk.Tk):
             self.log_queue.put(('enable_button', None))
 
     def start_video_processing(self):
-        method = self.processing_method.get()
+        # Xác định method và regions phù hợp với logic của process_video_optimized
+        if self.selected_regions:
+            regions = self.selected_regions
+            method = 'manual'
+        else:
+            regions = None
+            method = 'auto'
         chinese_mode = self.chinese_mode.get()
         import settings
         settings.CHINESE_MODE = chinese_mode
-        settings.PROCESSING_MODE = (method == 'advanced_modules')
-        regions = None  # Luôn auto, không chọn vùng thủ công nữa
-        # Không còn logic chọn vùng thủ công cho 'basic'
+        settings.PROCESSING_MODE = (self.processing_method.get() == 'advanced_modules')
         self.safe_log(f'🎬 Bắt đầu xử lý video...')
         self.safe_log(f'📋 Phương pháp: {method}')
         self.safe_log(f'🇨🇳 Chế độ tiếng Trung: {"Bật" if chinese_mode else "Tắt"}')
-        self.safe_log('🤖 Sử dụng auto-detect')
+        if regions:
+            self.safe_log(f'✏️  Sử dụng vùng chọn thủ công ({len(regions)} vùng)')
+        else:
+            self.safe_log('🤖 Sử dụng auto-detect')
         self.process_btn.config(state='disabled')
         thread = threading.Thread(target=self.process_video_worker, args=(settings.CHINESE_MODE, settings.PROCESSING_MODE, regions, method), daemon=True)
         thread.start()

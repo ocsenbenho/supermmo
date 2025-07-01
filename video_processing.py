@@ -21,7 +21,11 @@ def get_video_codec_for_macos():
 
 def test_video_writer(width, height, fps, output_path, codec):
     try:
-        fourcc = cv2.VideoWriter_fourcc(*codec)
+        fourcc_func = getattr(cv2, 'VideoWriter_fourcc', None)
+        if fourcc_func is not None:
+            fourcc = fourcc_func(*codec)
+        else:
+            raise RuntimeError('Không tìm thấy VideoWriter_fourcc trong cv2!')
         writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
         if writer.isOpened():
             test_frame = np.zeros((height, width, 3), dtype=np.uint8)
@@ -47,10 +51,21 @@ def _process_single_frame(args):
         img = cv2.imread(frame_path)
         if img is None:
             return (frame_idx, False, f"Không thể đọc frame {frame_idx}")
-        if method == False:
-            mask = create_advanced_mask(img, regions=regions, auto_detect=False)
+        debug_dir = "debug"
+        if not os.path.exists(debug_dir):
+            os.makedirs(debug_dir)
+        debug_mask_prefix = os.path.join(debug_dir, f"frame_{frame_idx:06d}")
+        if method == 'manual':
+            mask = create_advanced_mask(img, regions=regions, auto_detect=False, debug_mask_prefix=debug_mask_prefix)
         else:
-            mask = create_advanced_mask(img, regions=None, auto_detect=True)
+            mask = create_advanced_mask(img, regions=None, auto_detect=True, debug_mask_prefix=debug_mask_prefix)
+        # Ghi log tên file mask debug
+        import glob
+        mask_files = glob.glob(f"{debug_mask_prefix}_mask_*.png")
+        if mask_files:
+            with open(os.path.join(debug_dir, "debug_mask_log.txt"), "a") as f:
+                for mask_file in mask_files:
+                    f.write(f"frame {frame_idx}: {mask_file}\n")
         cleanedImg = advanced_inpaint(img, mask)
         if cleanedImg.shape[:2] != (height, width):
             cleanedImg = cv2.resize(cleanedImg, (width, height))
@@ -165,7 +180,11 @@ def process_video_optimized(video_path, output_dir, log_callback=None, progress_
         log("❌ Không tìm thấy codec nào hoạt động")
         return False
     try:
-        fourcc = cv2.VideoWriter_fourcc(*successful_codec)
+        fourcc_func = getattr(cv2, 'VideoWriter_fourcc', None)
+        if fourcc_func is not None:
+            fourcc = fourcc_func(*successful_codec)
+        else:
+            raise RuntimeError('Không tìm thấy VideoWriter_fourcc trong cv2!')
         video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
         if not video_writer.isOpened():
             log("❌ Không thể tạo video writer")

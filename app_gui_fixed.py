@@ -124,7 +124,11 @@ class VideoRemoverApp(tk.Tk):
             basename = os.path.splitext(os.path.basename(video_path))[0]
             output_path = os.path.join(output_dir, f'{basename}_text_removed.mp4')
             
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            fourcc_func = getattr(cv2, 'VideoWriter_fourcc', None)
+            if fourcc_func is not None:
+                fourcc = fourcc_func(*'mp4v')
+            else:
+                raise RuntimeError('Không tìm thấy VideoWriter_fourcc trong cv2!')
             out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             
             if not out.isOpened():
@@ -236,7 +240,7 @@ class VideoRemoverApp(tk.Tk):
             for contour in contours:
                 area = cv2.contourArea(contour)
                 if area > 50:  # Chỉ giữ các vùng đủ lớn
-                    cv2.fillPoly(filtered_mask, [contour], 255)
+                    cv2.fillPoly(filtered_mask, [contour], (255,))
             
             # Blur mask để làm mềm edges
             filtered_mask = cv2.GaussianBlur(filtered_mask, (5, 5), 0)

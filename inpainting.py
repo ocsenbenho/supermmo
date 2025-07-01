@@ -33,9 +33,12 @@ def chinese_optimized_inpaint(img, mask):
     result = cv2.addWeighted(result1, alpha, result2, beta, 0)
     result = cv2.addWeighted(result, 1-gamma, result3, gamma, 0)
     # Làm mịn vùng mask
-    mask_blur = feather_mask(mask, feather=21)
+    mask_blur = feather_mask(mask, feather=41)  # feather lớn hơn
     result_smooth = cv2.edgePreservingFilter(result, flags=1, sigma_s=60, sigma_r=0.4)
     result_smooth = cv2.bilateralFilter(result_smooth, 15, 80, 80)
+    # Thêm noise nhẹ vào vùng inpaint
+    noise = np.random.normal(0, 2, result_smooth.shape).astype(np.float32)
+    result_smooth = np.clip(result_smooth + noise * (mask_blur[..., None]), 0, 255)
     # Blend vùng inpaint với ảnh gốc bằng alpha mask mờ cạnh
     img = img.astype(np.float32)
     result_smooth = result_smooth.astype(np.float32)
