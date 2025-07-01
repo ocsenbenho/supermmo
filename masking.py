@@ -2,7 +2,6 @@ import numpy as np
 import cv2
 from ocr_utils import setup_tesseract_chinese, detect_chinese_text_ocr, contains_chinese_characters
 from settings import CHINESE_MODE
-from gui_utils import get_chinese_processing_mode
 
 def create_advanced_mask_original(img, regions=None, auto_detect=True):
     mask = np.zeros(img.shape[:2], np.uint8)
@@ -147,13 +146,8 @@ def create_chinese_optimized_mask(img):
 
 def create_advanced_mask(img, regions=None, auto_detect=True):
     from settings import CHINESE_MODE
-    if CHINESE_MODE is None:
-        from gui_utils import get_chinese_processing_mode
-        chinese_mode = get_chinese_processing_mode()
-        if chinese_mode is None:
-            return np.zeros(img.shape[:2], np.uint8)
-    else:
-        chinese_mode = CHINESE_MODE
+    # Nếu CHINESE_MODE là None, mặc định là True (không gọi GUI)
+    chinese_mode = CHINESE_MODE if CHINESE_MODE is not None else True
     if chinese_mode:
         return create_chinese_optimized_mask(img)
     else:

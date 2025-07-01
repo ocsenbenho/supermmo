@@ -6,16 +6,18 @@ from inpainting import advanced_inpaint
 from gui_utils import preview_mask
 from settings import CHINESE_MODE
 
-def process_single_image_chinese(image_path, output_dir):
+def process_single_image_chinese(image_path, output_dir, preview=True):
     print(f"🖼️  Đang xử lý ảnh: {os.path.basename(image_path)}")
     img = cv2.imread(image_path)
     if img is None:
         print(f"❌ Không thể đọc ảnh: {image_path}")
         return False
     mask = create_advanced_mask(img, regions=None, auto_detect=True)
-    if not preview_mask(img, mask):
-        print("❌ Hủy xử lý")
-        return False
+    import threading
+    if preview and threading.current_thread().name == "MainThread":
+        if not preview_mask(img, mask):
+            print("❌ Hủy xử lý")
+            return False
     result = advanced_inpaint(img, mask)
     image_name = os.path.splitext(os.path.basename(image_path))[0]
     suffix = "_chinese_optimized" if CHINESE_MODE else "_text_removed"
