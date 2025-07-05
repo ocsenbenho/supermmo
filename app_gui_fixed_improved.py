@@ -7,6 +7,9 @@ import subprocess
 import cv2
 import numpy as np
 from PIL import Image, ImageTk
+import re
+import time
+from facebook_reel_scraper_selenium import get_facebook_reel_links_selenium
 
 # Import các module hiện có
 try:
@@ -254,6 +257,180 @@ class VideoRemoverApp(tk.Tk):
         self.monitor_text = tk.Text(monitor_scrollable, height=30, bg='#222', fg='#0f0', font=('Consolas', 11, 'bold'))
         self.monitor_text.pack(fill='both', expand=True)
         self.notebook.add(monitor_frame, text='Theo dõi tool',)
+
+        # Tab TikTok
+        tiktok_frame = tk.Frame(self.notebook)
+        tiktok_canvas = tk.Canvas(tiktok_frame, borderwidth=0)
+        tiktok_scrollbar = tk.Scrollbar(tiktok_frame, orient='vertical', command=tiktok_canvas.yview)
+        tiktok_canvas.configure(yscrollcommand=tiktok_scrollbar.set)
+        tiktok_scrollable = tk.Frame(tiktok_canvas)
+        tiktok_scrollable.bind(
+            "<Configure>", lambda e: tiktok_canvas.configure(scrollregion=tiktok_canvas.bbox("all")))
+        tiktok_canvas.create_window((0, 0), window=tiktok_scrollable, anchor='nw')
+        tiktok_canvas.pack(side='left', fill='both', expand=True)
+        tiktok_scrollbar.pack(side='right', fill='y')
+        # Bước 1: Chọn file cookies TikTok
+        tk.Label(tiktok_scrollable, text='Bước 1: Chọn file cookies TikTok', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(20, 0))
+        tiktok_cookie_frame = tk.Frame(tiktok_scrollable)
+        tiktok_cookie_frame.pack(fill='x', padx=20, pady=5)
+        self.tiktok_cookies_file = tk.StringVar(value='')
+        self.tiktok_cookies_entry = tk.Entry(tiktok_cookie_frame, textvariable=self.tiktok_cookies_file, width=40, font=bold_font)
+        self.tiktok_cookies_entry.pack(side='left', padx=5)
+        tk.Button(tiktok_cookie_frame, text='Chọn...', command=self.choose_tiktok_cookies_file, font=bold_font).pack(side='left')
+        self.tiktok_cookie_status = tk.Label(tiktok_cookie_frame, text='Chưa chọn file cookies', fg='red', font=bold_font)
+        self.tiktok_cookie_status.pack(side='left', padx=10)
+        # Bước 2: Chọn thư mục lưu
+        tk.Label(tiktok_scrollable, text='Bước 2: Chọn thư mục lưu file tải về', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(10, 0))
+        tiktok_out_frame = tk.Frame(tiktok_scrollable)
+        tiktok_out_frame.pack(fill='x', padx=20, pady=5)
+        self.tiktok_output_dir = tk.StringVar(value=DEFAULT_OUTPUT_DIR)
+        self.tiktok_output_entry = tk.Entry(tiktok_out_frame, textvariable=self.tiktok_output_dir, width=40, font=bold_font)
+        self.tiktok_output_entry.pack(side='left', padx=5)
+        tk.Button(tiktok_out_frame, text='Chọn...', command=self.choose_tiktok_output_dir, font=bold_font).pack(side='left')
+        self.tiktok_output_status = tk.Label(tiktok_out_frame, text='Chưa chọn thư mục lưu', fg='red', font=bold_font)
+        self.tiktok_output_status.pack(side='left', padx=10)
+        # Bước 3: Nhập link profile và lấy link video
+        tk.Label(tiktok_scrollable, text='Bước 3: Nhập link profile TikTok và bấm "Lấy link Video"', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(10, 0))
+        tiktok_user_frame = tk.Frame(tiktok_scrollable)
+        tiktok_user_frame.pack(fill='x', padx=20, pady=5)
+        self.tiktok_user_url = tk.StringVar(value='')
+        self.tiktok_user_entry = tk.Entry(tiktok_user_frame, textvariable=self.tiktok_user_url, width=50, font=bold_font)
+        self.tiktok_user_entry.pack(side='left', padx=5)
+        tk.Label(tiktok_user_frame, text='Số lượng link muốn lấy:', font=bold_font).pack(side='left', padx=5)
+        self.tiktok_num_links = tk.IntVar(value=20)
+        tk.Entry(tiktok_user_frame, textvariable=self.tiktok_num_links, width=5, font=bold_font).pack(side='left', padx=5)
+        self.tiktok_get_links_btn = tk.Button(tiktok_user_frame, text='Lấy link Video', command=self.get_all_tiktok_video_links_selenium, font=bold_font, bg='#0af')
+        self.tiktok_get_links_btn.pack(side='left', padx=5)
+        tk.Label(tiktok_user_frame, text='(Ví dụ: https://www.tiktok.com/@username)', font=('Arial', 10, 'italic')).pack(side='left', padx=10)
+        # Bước 4: Xem và tải hàng loạt
+        tk.Label(tiktok_scrollable, text='Bước 4: Kiểm tra danh sách link và bấm "Tải hàng loạt"', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(10, 0))
+        self.tiktok_links_text = tk.Text(tiktok_scrollable, height=10, width=80, font=bold_font)
+        self.tiktok_links_text.pack(padx=20, pady=5)
+        tiktok_btn_frame = tk.Frame(tiktok_scrollable)
+        tiktok_btn_frame.pack(pady=10)
+        self.tiktok_download_btn = tk.Button(tiktok_btn_frame, text='Tải hàng loạt', command=self.start_tiktok_download, width=15, bg='blue', fg='white', font=bold_font)
+        self.tiktok_download_btn.pack(side='left', padx=5)
+        self.tiktok_cancel_btn = tk.Button(tiktok_btn_frame, text='Cancel', command=self.cancel_tiktok_download, width=10, bg='red', fg='white', font=bold_font, state='disabled')
+        self.tiktok_cancel_btn.pack(side='left', padx=5)
+        self.tiktok_log_text = tk.Text(tiktok_scrollable, height=10, wrap='word', bg='#f7f7f7', font=bold_font)
+        self.tiktok_log_text.pack(fill='both', expand=True, padx=20, pady=5)
+        self.notebook.add(tiktok_frame, text='Tải TikTok Video')
+
+        # Tab Facebook
+        fb_frame = tk.Frame(self.notebook)
+        fb_canvas = tk.Canvas(fb_frame, borderwidth=0)
+        fb_scrollbar = tk.Scrollbar(fb_frame, orient='vertical', command=fb_canvas.yview)
+        fb_canvas.configure(yscrollcommand=fb_scrollbar.set)
+        fb_scrollable = tk.Frame(fb_canvas)
+        fb_scrollable.bind(
+            "<Configure>", lambda e: fb_canvas.configure(scrollregion=fb_canvas.bbox("all")))
+        fb_canvas.create_window((0, 0), window=fb_scrollable, anchor='nw')
+        fb_canvas.pack(side='left', fill='both', expand=True)
+        fb_scrollbar.pack(side='right', fill='y')
+        # Bước 1: Chọn file cookies Facebook
+        tk.Label(fb_scrollable, text='Bước 1: Chọn file cookies Facebook', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(20, 0))
+        fb_cookie_frame = tk.Frame(fb_scrollable)
+        fb_cookie_frame.pack(fill='x', padx=20, pady=5)
+        self.fb_cookies_file = tk.StringVar(value='')
+        self.fb_cookies_entry = tk.Entry(fb_cookie_frame, textvariable=self.fb_cookies_file, width=40, font=bold_font)
+        self.fb_cookies_entry.pack(side='left', padx=5)
+        tk.Button(fb_cookie_frame, text='Chọn...', command=self.choose_fb_cookies_file, font=bold_font).pack(side='left')
+        self.fb_cookie_status = tk.Label(fb_cookie_frame, text='Chưa chọn file cookies', fg='red', font=bold_font)
+        self.fb_cookie_status.pack(side='left', padx=10)
+        # Bước 2: Chọn thư mục lưu
+        tk.Label(fb_scrollable, text='Bước 2: Chọn thư mục lưu file tải về', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(10, 0))
+        fb_out_frame = tk.Frame(fb_scrollable)
+        fb_out_frame.pack(fill='x', padx=20, pady=5)
+        self.fb_output_dir = tk.StringVar(value=DEFAULT_OUTPUT_DIR)
+        self.fb_output_entry = tk.Entry(fb_out_frame, textvariable=self.fb_output_dir, width=40, font=bold_font)
+        self.fb_output_entry.pack(side='left', padx=5)
+        tk.Button(fb_out_frame, text='Chọn...', command=self.choose_fb_output_dir, font=bold_font).pack(side='left')
+        self.fb_output_status = tk.Label(fb_out_frame, text='Chưa chọn thư mục lưu', fg='red', font=bold_font)
+        self.fb_output_status.pack(side='left', padx=10)
+        # Bước 3: Nhập link profile và lấy link reel
+        tk.Label(fb_scrollable, text='Bước 3: Nhập link profile Facebook và bấm "Lấy link Reel"', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(10, 0))
+        fb_user_frame = tk.Frame(fb_scrollable)
+        fb_user_frame.pack(fill='x', padx=20, pady=5)
+        self.fb_user_url = tk.StringVar(value='')
+        self.fb_user_entry = tk.Entry(fb_user_frame, textvariable=self.fb_user_url, width=50, font=bold_font)
+        self.fb_user_entry.pack(side='left', padx=5)
+        tk.Label(fb_user_frame, text='Số lượng link muốn lấy:', font=bold_font).pack(side='left', padx=5)
+        self.fb_num_links = tk.IntVar(value=20)
+        tk.Entry(fb_user_frame, textvariable=self.fb_num_links, width=5, font=bold_font).pack(side='left', padx=5)
+        self.fb_get_links_btn = tk.Button(fb_user_frame, text='Lấy link Reel', command=self.get_all_fb_reel_links_selenium, font=bold_font, bg='#0af')
+        self.fb_get_links_btn.pack(side='left', padx=5)
+        tk.Label(fb_user_frame, text='(Ví dụ: https://www.facebook.com/username/reels/)', font=('Arial', 10, 'italic')).pack(side='left', padx=10)
+        # Bước 4: Xem và tải hàng loạt
+        tk.Label(fb_scrollable, text='Bước 4: Kiểm tra danh sách link và bấm "Tải hàng loạt"', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(10, 0))
+        self.fb_links_text = tk.Text(fb_scrollable, height=10, width=80, font=bold_font)
+        self.fb_links_text.pack(padx=20, pady=5)
+        fb_btn_frame = tk.Frame(fb_scrollable)
+        fb_btn_frame.pack(pady=10)
+        self.fb_download_btn = tk.Button(fb_btn_frame, text='Tải hàng loạt', command=self.start_fb_download, width=15, bg='blue', fg='white', font=bold_font)
+        self.fb_download_btn.pack(side='left', padx=5)
+        self.fb_cancel_btn = tk.Button(fb_btn_frame, text='Cancel', command=self.cancel_fb_download, width=10, bg='red', fg='white', font=bold_font, state='disabled')
+        self.fb_cancel_btn.pack(side='left', padx=5)
+        self.fb_log_text = tk.Text(fb_scrollable, height=10, wrap='word', bg='#f7f7f7', font=bold_font)
+        self.fb_log_text.pack(fill='both', expand=True, padx=20, pady=5)
+        self.notebook.add(fb_frame, text='Tải Facebook Reel')
+
+        # Tab Instagram
+        insta_frame = tk.Frame(self.notebook)
+        insta_canvas = tk.Canvas(insta_frame, borderwidth=0)
+        insta_scrollbar = tk.Scrollbar(insta_frame, orient='vertical', command=insta_canvas.yview)
+        insta_canvas.configure(yscrollcommand=insta_scrollbar.set)
+        insta_scrollable = tk.Frame(insta_canvas)
+        insta_scrollable.bind(
+            "<Configure>", lambda e: insta_canvas.configure(scrollregion=insta_canvas.bbox("all")))
+        insta_canvas.create_window((0, 0), window=insta_scrollable, anchor='nw')
+        insta_canvas.pack(side='left', fill='both', expand=True)
+        insta_scrollbar.pack(side='right', fill='y')
+        # Bước 1: Chọn file cookies Instagram
+        tk.Label(insta_scrollable, text='Bước 1: Chọn file cookies Instagram', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(20, 0))
+        insta_cookie_frame = tk.Frame(insta_scrollable)
+        insta_cookie_frame.pack(fill='x', padx=20, pady=5)
+        self.insta_cookies_file = tk.StringVar(value='')
+        self.insta_cookies_entry = tk.Entry(insta_cookie_frame, textvariable=self.insta_cookies_file, width=40, font=bold_font)
+        self.insta_cookies_entry.pack(side='left', padx=5)
+        tk.Button(insta_cookie_frame, text='Chọn...', command=self.choose_insta_cookies_file, font=bold_font).pack(side='left')
+        self.insta_cookie_status = tk.Label(insta_cookie_frame, text='Chưa chọn file cookies', fg='red', font=bold_font)
+        self.insta_cookie_status.pack(side='left', padx=10)
+        # Bước 2: Chọn thư mục lưu
+        tk.Label(insta_scrollable, text='Bước 2: Chọn thư mục lưu file tải về', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(10, 0))
+        insta_out_frame = tk.Frame(insta_scrollable)
+        insta_out_frame.pack(fill='x', padx=20, pady=5)
+        self.insta_output_dir = tk.StringVar(value=DEFAULT_OUTPUT_DIR)
+        self.insta_output_entry = tk.Entry(insta_out_frame, textvariable=self.insta_output_dir, width=40, font=bold_font)
+        self.insta_output_entry.pack(side='left', padx=5)
+        tk.Button(insta_out_frame, text='Chọn...', command=self.choose_insta_output_dir, font=bold_font).pack(side='left')
+        self.insta_output_status = tk.Label(insta_out_frame, text='Chưa chọn thư mục lưu', fg='red', font=bold_font)
+        self.insta_output_status.pack(side='left', padx=10)
+        # Bước 3: Nhập link profile và lấy link reel
+        tk.Label(insta_scrollable, text='Bước 3: Nhập link profile Instagram và bấm "Lấy link Reel"', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(10, 0))
+        insta_user_frame = tk.Frame(insta_scrollable)
+        insta_user_frame.pack(fill='x', padx=20, pady=5)
+        self.insta_user_url = tk.StringVar(value='')
+        self.insta_user_entry = tk.Entry(insta_user_frame, textvariable=self.insta_user_url, width=50, font=bold_font)
+        self.insta_user_entry.pack(side='left', padx=5)
+        tk.Label(insta_user_frame, text='Số lượng link muốn lấy:', font=bold_font).pack(side='left', padx=5)
+        self.insta_num_links = tk.IntVar(value=20)
+        tk.Entry(insta_user_frame, textvariable=self.insta_num_links, width=5, font=bold_font).pack(side='left', padx=5)
+        self.insta_get_links_btn = tk.Button(insta_user_frame, text='Lấy link Reel', command=self.get_all_insta_reel_links_selenium, font=bold_font, bg='#0af')
+        self.insta_get_links_btn.pack(side='left', padx=5)
+        tk.Label(insta_user_frame, text='(Ví dụ: https://www.instagram.com/username/)', font=('Arial', 10, 'italic')).pack(side='left', padx=10)
+        # Bước 4: Xem và tải hàng loạt
+        tk.Label(insta_scrollable, text='Bước 4: Kiểm tra danh sách link và bấm "Tải hàng loạt"', font=('Arial', 12, 'bold')).pack(anchor='w', padx=20, pady=(10, 0))
+        self.insta_links_text = tk.Text(insta_scrollable, height=10, width=80, font=bold_font)
+        self.insta_links_text.pack(padx=20, pady=5)
+        insta_btn_frame = tk.Frame(insta_scrollable)
+        insta_btn_frame.pack(pady=10)
+        self.insta_download_btn = tk.Button(insta_btn_frame, text='Tải hàng loạt', command=self.start_insta_download, width=15, bg='blue', fg='white', font=bold_font)
+        self.insta_download_btn.pack(side='left', padx=5)
+        self.insta_cancel_btn = tk.Button(insta_btn_frame, text='Cancel', command=self.cancel_insta_download, width=10, bg='red', fg='white', font=bold_font, state='disabled')
+        self.insta_cancel_btn.pack(side='left', padx=5)
+        self.insta_log_text = tk.Text(insta_scrollable, height=10, wrap='word', bg='#f7f7f7', font=bold_font)
+        self.insta_log_text.pack(fill='both', expand=True, padx=20, pady=5)
+        self.notebook.add(insta_frame, text='Tải Instagram Reel')
 
     def choose_video_file(self):
         filetypes = [("Video files", "*.mp4 *.avi *.mov *.mkv *.wmv *.flv *.m4v *.webm")]
@@ -919,6 +1096,649 @@ class VideoRemoverApp(tk.Tk):
         """Xóa log - chỉ gọi từ main thread"""
         self.log_text.delete('1.0', 'end')
 
+    # --- TikTok Tab: Chuẩn hóa workflow ---
+    def tiktok_check_ready(self):
+        # Chỉ cập nhật trạng thái label, không disable nút lấy link
+        cookies_ok = bool(self.tiktok_cookies_file.get())
+        output_ok = bool(self.tiktok_output_dir.get())
+        url_ok = bool(self.tiktok_user_url.get().strip())
+        if cookies_ok:
+            self.tiktok_cookie_status.config(text='Đã chọn file cookies', fg='green')
+        else:
+            self.tiktok_cookie_status.config(text='Chưa chọn file cookies', fg='red')
+        if output_ok:
+            self.tiktok_output_status.config(text='Đã chọn thư mục lưu', fg='green')
+        else:
+            self.tiktok_output_status.config(text='Chưa chọn thư mục lưu', fg='red')
+        # Luôn enable nút lấy link, chỉ disable khi đang lấy link
+        if getattr(self, '_tiktok_getting_links', False):
+            self.tiktok_get_links_btn.config(state='disabled')
+        else:
+            self.tiktok_get_links_btn.config(state='normal')
+        self.tiktok_download_btn.config(state='normal' if self.tiktok_links_text.get('1.0', 'end').strip() else 'disabled')
+
+    def choose_tiktok_cookies_file(self):
+        file_selected = filedialog.askopenfilename(title='Chọn file cookies TikTok', filetypes=[('Text files', '*.txt'), ('All files', '*.*')])
+        if file_selected:
+            self.tiktok_cookies_file.set(file_selected)
+        self.tiktok_check_ready()
+
+    def choose_tiktok_output_dir(self):
+        dir_selected = filedialog.askdirectory(initialdir=self.tiktok_output_dir.get())
+        if dir_selected:
+            self.tiktok_output_dir.set(dir_selected)
+        self.tiktok_check_ready()
+
+    def tiktok_on_profile_url_change(self, *args):
+        self.tiktok_check_ready()
+
+    def get_all_tiktok_video_links_selenium(self):
+        profile_url = self.tiktok_user_url.get().strip()
+        cookies_file = self.tiktok_cookies_file.get().strip() or None
+        num_links = self.tiktok_num_links.get() if hasattr(self, 'tiktok_num_links') else 20
+        chromedriver_path = self.fb_chromedriver_path.get().strip() if hasattr(self, 'fb_chromedriver_path') else None
+        if not profile_url:
+            self.tiktok_log_text.insert('end', '❌ Chưa nhập link profile TikTok\n')
+            self.tiktok_log_text.see('end')
+            return
+        if not self.tiktok_output_dir.get():
+            self.tiktok_log_text.insert('end', '❌ Bạn phải chọn thư mục lưu trước khi lấy link!\n')
+            self.tiktok_log_text.see('end')
+            return
+        self.tiktok_log_text.insert('end', f'🔎 [Selenium] Đang lấy tối đa {num_links} link video từ: {profile_url}\n')
+        self.tiktok_log_text.see('end')
+        self.tiktok_get_links_btn.config(state='disabled')
+        self._tiktok_getting_links = True
+        thread = threading.Thread(target=self.get_all_tiktok_video_links_selenium_worker, args=(profile_url, cookies_file, chromedriver_path, num_links), daemon=True)
+        thread.start()
+
+    def get_all_tiktok_video_links_selenium_worker(self, profile_url, cookies_file, chromedriver_path, num_links):
+        try:
+            from tiktok_video_scraper_selenium import get_tiktok_video_links_selenium
+            links = get_tiktok_video_links_selenium(profile_url, cookies_file, num_links, chromedriver_path)
+            clean_links = []
+            for idx, l in enumerate(links, 1):
+                m = re.search(r'/video/(\d+)', l)
+                if m:
+                    clean_links.append(f'{idx:02d}_{m.group(1)} {l}')
+            self.tiktok_links_text.config(state='normal')
+            self.tiktok_links_text.delete('1.0', 'end')
+            if clean_links:
+                self.tiktok_links_text.insert('end', '\n'.join(clean_links))
+                self.tiktok_download_btn.config(state='normal')
+                self.tiktok_log_text.insert('end', f'✅ [Selenium] Đã lấy {len(clean_links)} link video\n')
+            else:
+                self.tiktok_links_text.insert('end', '')
+                self.tiktok_download_btn.config(state='disabled')
+                self.tiktok_log_text.insert('end', '[Selenium] ⚠️ Không tìm thấy link video nào\n')
+        except Exception as e:
+            import traceback
+            err_str = str(e) + '\n' + traceback.format_exc()
+            self.tiktok_log_text.insert('end', f'[Selenium] ❌ Lỗi lấy link: {err_str}\n')
+            self.tiktok_log_text.see('end')
+        finally:
+            self.tiktok_log_text.see('end')
+            self._tiktok_getting_links = False
+            self.tiktok_get_links_btn.config(state='normal')
+            self.tiktok_check_ready()
+
+    def start_tiktok_download(self):
+        lines = self.tiktok_links_text.get('1.0', 'end').strip().splitlines()
+        links = []
+        stt_id_list = []
+        for line in lines:
+            parts = line.strip().split()
+            if len(parts) == 2:
+                stt_id, link = parts
+                links.append(link)
+                stt_id_list.append(stt_id)
+            elif len(parts) == 1:
+                links.append(parts[0])
+                stt_id_list.append('')
+        if not links:
+            self.tiktok_log_text.insert('end', '❌ Chưa có link nào để tải\n')
+            self.tiktok_log_text.see('end')
+            return
+        output_dir = self.tiktok_output_dir.get()
+        cookies_file = self.tiktok_cookies_file.get().strip() or None
+        self.tiktok_download_btn.config(state='disabled')
+        self.tiktok_cancel_btn.config(state='normal')
+        self.tiktok_cancel_download = False
+        self.tiktok_log_text.insert('end', f'🚀 Bắt đầu tải {len(links)} link...\n')
+        self.tiktok_log_text.see('end')
+        thread = threading.Thread(target=self.tiktok_download_worker, args=(links, output_dir, cookies_file, stt_id_list), daemon=True)
+        thread.start()
+
+    def cancel_tiktok_download(self):
+        self.tiktok_cancel_download = True
+        self.tiktok_log_text.insert('end', '⏹️ Đã yêu cầu dừng tải hàng loạt!\n')
+        self.tiktok_log_text.see('end')
+        self.tiktok_cancel_btn.config(state='disabled')
+
+    def tiktok_download_worker(self, links, output_dir, cookies_file, stt_id_list):
+        def log_callback(msg):
+            self.tiktok_log_text.insert('end', msg + '\n')
+            self.tiktok_log_text.see('end')
+        success_count = 0
+        fail_count = 0
+        try:
+            for idx, (link, stt_id) in enumerate(zip(links, stt_id_list), 1):
+                if getattr(self, 'tiktok_cancel_download', False):
+                    log_callback(f'⏹️ Đã dừng tải tại link thứ {idx}/{len(links)}')
+                    break
+                log_callback(f'⬇️ [{idx}/{len(links)}] Đang tải: {stt_id} {link}')
+                try:
+                    videoid_match = re.search(r'/video/(\d+)', link)
+                    videoid = videoid_match.group(1) if videoid_match else f'video_{idx}'
+                    prefix = stt_id if stt_id else f'{idx:02d}_{videoid}'
+                    output_file_tpl = f'{output_dir}/{prefix}.%(ext)s'
+                    cmd = [
+                        'yt-dlp',
+                        '-o', output_file_tpl,
+                        '-f', 'bestvideo+bestaudio/best',
+                        '--no-continue',
+                        '--no-part',
+                        '--no-overwrites',
+                        '--no-mtime',
+                        '--no-cache-dir',
+                        '--force-overwrites',
+                        link
+                    ]
+                    if cookies_file:
+                        cmd[1:1] = ['--cookies', cookies_file]
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        log_callback(f'✅ Đã lưu: {prefix}')
+                        if result.stdout:
+                            log_callback('[yt-dlp stdout]\n' + result.stdout)
+                        if result.stderr:
+                            log_callback('[yt-dlp stderr]\n' + result.stderr)
+                        success_count += 1
+                    else:
+                        log_callback(f'❌ Lỗi tải {link}: {result.stderr}')
+                        fail_count += 1
+                except Exception as e:
+                    log_callback(f'❌ Lỗi tải {link}: {e}')
+                    fail_count += 1
+                time.sleep(3)
+            else:
+                log_callback(f'🎉 Đã tải xong tất cả link! Thành công: {success_count}, Thất bại: {fail_count}')
+        except Exception as e:
+            log_callback(f'❌ Lỗi: {e}')
+        finally:
+            self.tiktok_download_btn.config(state='normal')
+            self.tiktok_cancel_btn.config(state='disabled')
+            self.tiktok_check_ready()
+
+    # Các hàm xử lý cho tab mới
+    def social_update_platform(self):
+        plat = self.social_platform.get()
+        if plat == 'tiktok':
+            self.social_profile_hint.config(text='(Ví dụ: https://www.tiktok.com/@username)')
+        elif plat == 'facebook':
+            self.social_profile_hint.config(text='(Ví dụ: https://www.facebook.com/username/reels/)')
+        elif plat == 'instagram':
+            self.social_profile_hint.config(text='(Ví dụ: https://www.instagram.com/username/)')
+        else:
+            self.social_profile_hint.config(text='')
+
+    def choose_social_cookies_file(self):
+        file_selected = filedialog.askopenfilename(title='Chọn file cookies', filetypes=[('Text files', '*.txt'), ('All files', '*.*')])
+        if file_selected:
+            self.social_cookies_file.set(file_selected)
+            self.social_cookie_status.config(text='Đã chọn file cookies', fg='green')
+        else:
+            self.social_cookie_status.config(text='Chưa chọn file cookies', fg='red')
+
+    def choose_social_output_dir(self):
+        dir_selected = filedialog.askdirectory(initialdir=self.social_output_dir.get())
+        if dir_selected:
+            self.social_output_dir.set(dir_selected)
+            self.social_output_status.config(text='Đã chọn thư mục lưu', fg='green')
+        else:
+            self.social_output_status.config(text='Chưa chọn thư mục lưu', fg='red')
+
+    def get_all_social_video_links(self):
+        plat = self.social_platform.get()
+        profile_url = self.social_user_url.get().strip()
+        cookies_file = self.social_cookies_file.get().strip() or None
+        num_links = self.social_num_links.get() if hasattr(self, 'social_num_links') else 20
+        chromedriver_path = self.fb_chromedriver_path.get().strip() if hasattr(self, 'fb_chromedriver_path') else None
+        if not profile_url:
+            self.social_log_text.insert('end', '❌ Chưa nhập link profile!\n')
+            self.social_log_text.see('end')
+            return
+        if not self.social_output_dir.get():
+            self.social_log_text.insert('end', '❌ Bạn phải chọn thư mục lưu trước khi lấy link!\n')
+            self.social_log_text.see('end')
+            return
+        self.social_log_text.insert('end', f'🔎 Đang lấy tối đa {num_links} link video từ: {profile_url}\n')
+        self.social_log_text.see('end')
+        self.social_get_links_btn.config(state='disabled')
+        thread = threading.Thread(target=self.get_all_social_video_links_worker, args=(plat, profile_url, cookies_file, chromedriver_path, num_links), daemon=True)
+        thread.start()
+
+    def get_all_social_video_links_worker(self, plat, profile_url, cookies_file, chromedriver_path, num_links):
+        try:
+            if plat == 'tiktok':
+                links = get_tiktok_video_links_selenium(profile_url, cookies_file, num_links, chromedriver_path)
+                regex = r'/video/(\d+)'
+            elif plat == 'facebook':
+                links = get_facebook_reel_links_selenium(profile_url, cookies_file, num_links, chromedriver_path)
+                regex = r'/reel/(\d+)'
+            elif plat == 'instagram':
+                from instagram_reel_scraper_selenium import get_instagram_reel_links_selenium
+                links = get_instagram_reel_links_selenium(profile_url, cookies_file, num_links, chromedriver_path)
+                regex = r'/reel/(\w+)'
+            else:
+                links = []
+                regex = ''
+            clean_links = []
+            for idx, l in enumerate(links, 1):
+                m = re.search(regex, l)
+                if m:
+                    clean_links.append(f'{idx:02d}_{m.group(1)} {l}')
+            self.social_links_text.config(state='normal')
+            self.social_links_text.delete('1.0', 'end')
+            if clean_links:
+                self.social_links_text.insert('end', '\n'.join(clean_links))
+                self.social_download_btn.config(state='normal')
+                self.social_log_text.insert('end', f'✅ Đã lấy {len(clean_links)} link video\n')
+            else:
+                self.social_links_text.insert('end', '')
+                self.social_download_btn.config(state='disabled')
+                self.social_log_text.insert('end', '⚠️ Không tìm thấy link video nào\n')
+        except Exception as e:
+            err_str = str(e)
+            self.social_log_text.insert('end', f'❌ Lỗi lấy link: {err_str}\n')
+            self.social_log_text.see('end')
+        finally:
+            self.social_log_text.see('end')
+            self.social_get_links_btn.config(state='normal')
+
+    def start_social_download(self):
+        lines = self.social_links_text.get('1.0', 'end').strip().splitlines()
+        links = []
+        stt_id_list = []
+        for line in lines:
+            parts = line.strip().split()
+            if len(parts) == 2:
+                stt_id, link = parts
+                links.append(link)
+                stt_id_list.append(stt_id)
+            elif len(parts) == 1:
+                links.append(parts[0])
+                stt_id_list.append('')
+        if not links:
+            self.social_log_text.insert('end', '❌ Chưa có link nào để tải\n')
+            self.social_log_text.see('end')
+            return
+        output_dir = self.social_output_dir.get()
+        cookies_file = self.social_cookies_file.get().strip() or None
+        self.social_download_btn.config(state='disabled')
+        self.social_cancel_btn.config(state='normal')
+        self.social_cancel_download = False
+        self.social_log_text.insert('end', f'🚀 Bắt đầu tải {len(links)} link...\n')
+        self.social_log_text.see('end')
+        thread = threading.Thread(target=self.social_download_worker, args=(links, output_dir, cookies_file, stt_id_list), daemon=True)
+        thread.start()
+
+    def cancel_social_download(self):
+        self.social_cancel_download = True
+        self.social_log_text.insert('end', '⏹️ Đã yêu cầu dừng tải hàng loạt!\n')
+        self.social_log_text.see('end')
+        self.social_cancel_btn.config(state='disabled')
+
+    def social_download_worker(self, links, output_dir, cookies_file, stt_id_list):
+        def log_callback(msg):
+            self.social_log_text.insert('end', msg + '\n')
+            self.social_log_text.see('end')
+        success_count = 0
+        fail_count = 0
+        try:
+            for idx, (link, stt_id) in enumerate(zip(links, stt_id_list), 1):
+                if getattr(self, 'social_cancel_download', False):
+                    log_callback(f'⏹️ Đã dừng tải tại link thứ {idx}/{len(links)}')
+                    break
+                log_callback(f'⬇️ [{idx}/{len(links)}] Đang tải: {stt_id} {link}')
+                try:
+                    videoid_match = re.search(r'/([\w\d]+)', link)
+                    videoid = videoid_match.group(1) if videoid_match else f'video_{idx}'
+                    prefix = stt_id if stt_id else f'{idx:02d}_{videoid}'
+                    output_file_tpl = f'{output_dir}/{prefix}.%(ext)s'
+                    cmd = [
+                        'yt-dlp',
+                        '-o', output_file_tpl,
+                        '-f', 'bestvideo+bestaudio/best',
+                        '--no-continue',
+                        '--no-part',
+                        '--no-overwrites',
+                        '--no-mtime',
+                        '--no-cache-dir',
+                        '--force-overwrites',
+                        link
+                    ]
+                    if cookies_file:
+                        cmd[1:1] = ['--cookies', cookies_file]
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        log_callback(f'✅ Đã lưu: {prefix}')
+                        if result.stdout:
+                            log_callback('[yt-dlp stdout]\n' + result.stdout)
+                        if result.stderr:
+                            log_callback('[yt-dlp stderr]\n' + result.stderr)
+                        success_count += 1
+                    else:
+                        log_callback(f'❌ Lỗi tải {link}: {result.stderr}')
+                        fail_count += 1
+                except Exception as e:
+                    log_callback(f'❌ Lỗi tải {link}: {e}')
+                    fail_count += 1
+                time.sleep(3)
+            else:
+                log_callback(f'🎉 Đã tải xong tất cả link! Thành công: {success_count}, Thất bại: {fail_count}')
+        except Exception as e:
+            log_callback(f'❌ Lỗi: {e}')
+        finally:
+            self.social_download_btn.config(state='normal')
+            self.social_cancel_btn.config(state='disabled')
+
+    def choose_fb_cookies_file(self):
+        file_selected = filedialog.askopenfilename(title='Chọn file cookies Facebook', filetypes=[('Text files', '*.txt'), ('All files', '*.*')])
+        if file_selected:
+            self.fb_cookies_file.set(file_selected)
+            self.fb_cookie_status.config(text='Đã chọn file cookies', fg='green')
+        else:
+            self.fb_cookie_status.config(text='Chưa chọn file cookies', fg='red')
+
+    def choose_fb_output_dir(self):
+        dir_selected = filedialog.askdirectory(initialdir=self.fb_output_dir.get())
+        if dir_selected:
+            self.fb_output_dir.set(dir_selected)
+            self.fb_output_status.config(text='Đã chọn thư mục lưu', fg='green')
+        else:
+            self.fb_output_status.config(text='Chưa chọn thư mục lưu', fg='red')
+
+    def get_all_fb_reel_links_selenium(self):
+        profile_url = self.fb_user_url.get().strip()
+        cookies_file = self.fb_cookies_file.get().strip() or None
+        num_links = self.fb_num_links.get() if hasattr(self, 'fb_num_links') else 20
+        chromedriver_path = None  # Nếu có hỗ trợ chọn chromedriver riêng thì lấy từ biến phù hợp
+        if not profile_url:
+            self.fb_log_text.insert('end', '❌ Chưa nhập link profile Facebook!\n')
+            self.fb_log_text.see('end')
+            return
+        if not self.fb_output_dir.get():
+            self.fb_log_text.insert('end', '❌ Bạn phải chọn thư mục lưu trước khi lấy link!\n')
+            self.fb_log_text.see('end')
+            return
+        self.fb_log_text.insert('end', f'🔎 Đang lấy tối đa {num_links} link reel từ: {profile_url}\n')
+        self.fb_log_text.see('end')
+        self.fb_get_links_btn.config(state='disabled')
+        thread = threading.Thread(target=self.get_all_fb_reel_links_selenium_worker, args=(profile_url, cookies_file, chromedriver_path, num_links), daemon=True)
+        thread.start()
+
+    def get_all_fb_reel_links_selenium_worker(self, profile_url, cookies_file, chromedriver_path, num_links):
+        try:
+            links = get_facebook_reel_links_selenium(profile_url, cookies_file, num_links, chromedriver_path)
+            clean_links = []
+            for idx, l in enumerate(links, 1):
+                m = re.search(r'/reel/(\d+)', l)
+                if m:
+                    clean_links.append(f'{idx:02d}_{m.group(1)} {l}')
+            self.fb_links_text.config(state='normal')
+            self.fb_links_text.delete('1.0', 'end')
+            if clean_links:
+                self.fb_links_text.insert('end', '\n'.join(clean_links))
+                self.fb_download_btn.config(state='normal')
+                self.fb_log_text.insert('end', f'✅ Đã lấy {len(clean_links)} link reel\n')
+            else:
+                self.fb_links_text.insert('end', '')
+                self.fb_download_btn.config(state='disabled')
+                self.fb_log_text.insert('end', '⚠️ Không tìm thấy link reel nào\n')
+        except Exception as e:
+            err_str = str(e)
+            self.fb_log_text.insert('end', f'❌ Lỗi lấy link: {err_str}\n')
+            self.fb_log_text.see('end')
+        finally:
+            self.fb_log_text.see('end')
+            self.fb_get_links_btn.config(state='normal')
+
+    def start_fb_download(self):
+        lines = self.fb_links_text.get('1.0', 'end').strip().splitlines()
+        links = []
+        stt_id_list = []
+        for line in lines:
+            parts = line.strip().split()
+            if len(parts) == 2:
+                stt_id, link = parts
+                links.append(link)
+                stt_id_list.append(stt_id)
+            elif len(parts) == 1:
+                links.append(parts[0])
+                stt_id_list.append('')
+        if not links:
+            self.fb_log_text.insert('end', '❌ Chưa có link nào để tải\n')
+            self.fb_log_text.see('end')
+            return
+        output_dir = self.fb_output_dir.get()
+        cookies_file = self.fb_cookies_file.get().strip() or None
+        self.fb_download_btn.config(state='disabled')
+        self.fb_cancel_btn.config(state='normal')
+        self.fb_cancel_download = False
+        self.fb_log_text.insert('end', f'🚀 Bắt đầu tải {len(links)} link...\n')
+        self.fb_log_text.see('end')
+        thread = threading.Thread(target=self.fb_download_worker, args=(links, output_dir, cookies_file, stt_id_list), daemon=True)
+        thread.start()
+
+    def fb_download_worker(self, links, output_dir, cookies_file, stt_id_list):
+        def log_callback(msg):
+            self.fb_log_text.insert('end', msg + '\n')
+            self.fb_log_text.see('end')
+        success_count = 0
+        fail_count = 0
+        try:
+            for idx, (link, stt_id) in enumerate(zip(links, stt_id_list), 1):
+                if getattr(self, 'fb_cancel_download', False):
+                    log_callback(f'⏹️ Đã dừng tải tại link thứ {idx}/{len(links)}')
+                    break
+                log_callback(f'⬇️ [{idx}/{len(links)}] Đang tải: {stt_id} {link}')
+                try:
+                    videoid_match = re.search(r'/reel/(\d+)', link)
+                    videoid = videoid_match.group(1) if videoid_match else f'reel_{idx}'
+                    prefix = stt_id if stt_id else f'{idx:02d}_{videoid}'
+                    output_file_tpl = f'{output_dir}/{prefix}.%(ext)s'
+                    cmd = [
+                        'yt-dlp',
+                        '-o', output_file_tpl,
+                        '-f', 'bestvideo+bestaudio/best',
+                        '--no-continue',
+                        '--no-part',
+                        '--no-overwrites',
+                        '--no-mtime',
+                        '--no-cache-dir',
+                        '--force-overwrites',
+                        link
+                    ]
+                    if cookies_file:
+                        cmd[1:1] = ['--cookies', cookies_file]
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        log_callback(f'✅ Đã lưu: {prefix}')
+                        if result.stdout:
+                            log_callback('[yt-dlp stdout]\n' + result.stdout)
+                        if result.stderr:
+                            log_callback('[yt-dlp stderr]\n' + result.stderr)
+                        success_count += 1
+                    else:
+                        log_callback(f'❌ Lỗi tải {link}: {result.stderr}')
+                        fail_count += 1
+                except Exception as e:
+                    log_callback(f'❌ Lỗi tải {link}: {e}')
+                    fail_count += 1
+                time.sleep(3)
+            else:
+                log_callback(f'🎉 Đã tải xong tất cả link! Thành công: {success_count}, Thất bại: {fail_count}')
+        except Exception as e:
+            log_callback(f'❌ Lỗi: {e}')
+        finally:
+            self.fb_download_btn.config(state='normal')
+            self.fb_cancel_btn.config(state='disabled')
+
+    def cancel_fb_download(self):
+        self.fb_cancel_download = True
+        self.fb_log_text.insert('end', '⏹️ Đã yêu cầu dừng tải hàng loạt!\n')
+        self.fb_log_text.see('end')
+        self.fb_cancel_btn.config(state='disabled')
+
+    def choose_insta_cookies_file(self):
+        file_selected = filedialog.askopenfilename(title='Chọn file cookies Instagram', filetypes=[('Text files', '*.txt'), ('All files', '*.*')])
+        if file_selected:
+            self.insta_cookies_file.set(file_selected)
+            self.insta_cookie_status.config(text='Đã chọn file cookies', fg='green')
+        else:
+            self.insta_cookie_status.config(text='Chưa chọn file cookies', fg='red')
+
+    def choose_insta_output_dir(self):
+        dir_selected = filedialog.askdirectory(initialdir=self.insta_output_dir.get())
+        if dir_selected:
+            self.insta_output_dir.set(dir_selected)
+            self.insta_output_status.config(text='Đã chọn thư mục lưu', fg='green')
+        else:
+            self.insta_output_status.config(text='Chưa chọn thư mục lưu', fg='red')
+
+    def get_all_insta_reel_links_selenium(self):
+        profile_url = self.insta_user_url.get().strip()
+        cookies_file = self.insta_cookies_file.get().strip() or None
+        num_links = self.insta_num_links.get() if hasattr(self, 'insta_num_links') else 20
+        chromedriver_path = None  # Nếu có hỗ trợ chọn chromedriver riêng thì lấy từ biến phù hợp
+        if not profile_url:
+            self.insta_log_text.insert('end', '❌ Chưa nhập link profile Instagram!\n')
+            self.insta_log_text.see('end')
+            return
+        if not self.insta_output_dir.get():
+            self.insta_log_text.insert('end', '❌ Bạn phải chọn thư mục lưu trước khi lấy link!\n')
+            self.insta_log_text.see('end')
+            return
+        self.insta_log_text.insert('end', f'🔎 Đang lấy tối đa {num_links} link reel từ: {profile_url}\n')
+        self.insta_log_text.see('end')
+        self.insta_get_links_btn.config(state='disabled')
+        thread = threading.Thread(target=self.get_all_insta_reel_links_selenium_worker, args=(profile_url, cookies_file, chromedriver_path, num_links), daemon=True)
+        thread.start()
+
+    def get_all_insta_reel_links_selenium_worker(self, profile_url, cookies_file, chromedriver_path, num_links):
+        try:
+            from instagram_reel_scraper_selenium import get_instagram_reel_links_selenium
+            links = get_instagram_reel_links_selenium(profile_url, cookies_file, num_links, chromedriver_path)
+            clean_links = []
+            for idx, l in enumerate(links, 1):
+                m = re.search(r'/reel/([\w-]+)', l)
+                if m:
+                    clean_links.append(f'{idx:02d}_{m.group(1)} {l}')
+            self.insta_links_text.config(state='normal')
+            self.insta_links_text.delete('1.0', 'end')
+            if clean_links:
+                self.insta_links_text.insert('end', '\n'.join(clean_links))
+                self.insta_download_btn.config(state='normal')
+                self.insta_log_text.insert('end', f'✅ Đã lấy {len(clean_links)} link reel\n')
+            else:
+                self.insta_links_text.insert('end', '')
+                self.insta_download_btn.config(state='disabled')
+                self.insta_log_text.insert('end', '⚠️ Không tìm thấy link reel nào\n')
+        except Exception as e:
+            err_str = str(e)
+            self.insta_log_text.insert('end', f'❌ Lỗi lấy link: {err_str}\n')
+            self.insta_log_text.see('end')
+        finally:
+            self.insta_log_text.see('end')
+            self.insta_get_links_btn.config(state='normal')
+
+    def start_insta_download(self):
+        lines = self.insta_links_text.get('1.0', 'end').strip().splitlines()
+        links = []
+        stt_id_list = []
+        for line in lines:
+            parts = line.strip().split()
+            if len(parts) == 2:
+                stt_id, link = parts
+                links.append(link)
+                stt_id_list.append(stt_id)
+            elif len(parts) == 1:
+                links.append(parts[0])
+                stt_id_list.append('')
+        if not links:
+            self.insta_log_text.insert('end', '❌ Chưa có link nào để tải\n')
+            self.insta_log_text.see('end')
+            return
+        output_dir = self.insta_output_dir.get()
+        cookies_file = self.insta_cookies_file.get().strip() or None
+        self.insta_download_btn.config(state='disabled')
+        self.insta_cancel_btn.config(state='normal')
+        self.insta_cancel_download = False
+        self.insta_log_text.insert('end', f'🚀 Bắt đầu tải {len(links)} link...\n')
+        self.insta_log_text.see('end')
+        thread = threading.Thread(target=self.insta_download_worker, args=(links, output_dir, cookies_file, stt_id_list), daemon=True)
+        thread.start()
+
+    def cancel_insta_download(self):
+        self.insta_cancel_download = True
+        self.insta_log_text.insert('end', '⏹️ Đã yêu cầu dừng tải hàng loạt!\n')
+        self.insta_log_text.see('end')
+        self.insta_cancel_btn.config(state='disabled')
+
+    def insta_download_worker(self, links, output_dir, cookies_file, stt_id_list):
+        def log_callback(msg):
+            self.insta_log_text.insert('end', msg + '\n')
+            self.insta_log_text.see('end')
+        success_count = 0
+        fail_count = 0
+        try:
+            for idx, (link, stt_id) in enumerate(zip(links, stt_id_list), 1):
+                if getattr(self, 'insta_cancel_download', False):
+                    log_callback(f'⏹️ Đã dừng tải tại link thứ {idx}/{len(links)}')
+                    break
+                log_callback(f'⬇️ [{idx}/{len(links)}] Đang tải: {stt_id} {link}')
+                try:
+                    videoid_match = re.search(r'/reel/([\w-]+)', link)
+                    videoid = videoid_match.group(1) if videoid_match else f'reel_{idx}'
+                    prefix = stt_id if stt_id else f'{idx:02d}_{videoid}'
+                    output_file_tpl = f'{output_dir}/{prefix}.%(ext)s'
+                    cmd = [
+                        'yt-dlp',
+                        '-o', output_file_tpl,
+                        '-f', 'bestvideo+bestaudio/best',
+                        '--no-continue',
+                        '--no-part',
+                        '--no-overwrites',
+                        '--no-mtime',
+                        '--no-cache-dir',
+                        '--force-overwrites',
+                        link
+                    ]
+                    if cookies_file:
+                        cmd[1:1] = ['--cookies', cookies_file]
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        log_callback(f'✅ Đã lưu: {prefix}')
+                        if result.stdout:
+                            log_callback('[yt-dlp stdout]\n' + result.stdout)
+                        if result.stderr:
+                            log_callback('[yt-dlp stderr]\n' + result.stderr)
+                        success_count += 1
+                    else:
+                        log_callback(f'❌ Lỗi tải {link}: {result.stderr}')
+                        fail_count += 1
+                except Exception as e:
+                    log_callback(f'❌ Lỗi tải {link}: {e}')
+                    fail_count += 1
+                time.sleep(3)
+            else:
+                log_callback(f'🎉 Đã tải xong tất cả link! Thành công: {success_count}, Thất bại: {fail_count}')
+        except Exception as e:
+            log_callback(f'❌ Lỗi: {e}')
+        finally:
+            self.insta_download_btn.config(state='normal')
+            self.insta_cancel_btn.config(state='disabled')
 
 def main():
     import platform

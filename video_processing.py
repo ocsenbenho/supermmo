@@ -6,11 +6,7 @@ import sys
 import subprocess
 from masking import create_advanced_mask
 from inpainting import advanced_inpaint
-<<<<<<< HEAD
 from gui_utils import get_processing_method, RegionSelector
-=======
-# from gui_utils import get_processing_method, RegionSelector  # XÓA DÒNG NÀY
->>>>>>> 54b3dc6f2a539d8ffb7a63f2ead21ddac3cbcf28
 from settings import PROCESSING_MODE, CHINESE_MODE
 from parallel_utils import run_parallel_map
 
@@ -25,15 +21,7 @@ def get_video_codec_for_macos():
 
 def test_video_writer(width, height, fps, output_path, codec):
     try:
-<<<<<<< HEAD
         fourcc = cv2.VideoWriter_fourcc(*codec)
-=======
-        fourcc_func = getattr(cv2, 'VideoWriter_fourcc', None)
-        if fourcc_func is not None:
-            fourcc = fourcc_func(*codec)
-        else:
-            raise RuntimeError('Không tìm thấy VideoWriter_fourcc trong cv2!')
->>>>>>> 54b3dc6f2a539d8ffb7a63f2ead21ddac3cbcf28
         writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
         if writer.isOpened():
             test_frame = np.zeros((height, width, 3), dtype=np.uint8)
@@ -59,28 +47,10 @@ def _process_single_frame(args):
         img = cv2.imread(frame_path)
         if img is None:
             return (frame_idx, False, f"Không thể đọc frame {frame_idx}")
-<<<<<<< HEAD
         if method == False:
             mask = create_advanced_mask(img, regions=regions, auto_detect=False)
         else:
             mask = create_advanced_mask(img, regions=None, auto_detect=True)
-=======
-        debug_dir = "debug"
-        if not os.path.exists(debug_dir):
-            os.makedirs(debug_dir)
-        debug_mask_prefix = os.path.join(debug_dir, f"frame_{frame_idx:06d}")
-        if method == 'manual':
-            mask = create_advanced_mask(img, regions=regions, auto_detect=False, debug_mask_prefix=debug_mask_prefix)
-        else:
-            mask = create_advanced_mask(img, regions=None, auto_detect=True, debug_mask_prefix=debug_mask_prefix)
-        # Ghi log tên file mask debug
-        import glob
-        mask_files = glob.glob(f"{debug_mask_prefix}_mask_*.png")
-        if mask_files:
-            with open(os.path.join(debug_dir, "debug_mask_log.txt"), "a") as f:
-                for mask_file in mask_files:
-                    f.write(f"frame {frame_idx}: {mask_file}\n")
->>>>>>> 54b3dc6f2a539d8ffb7a63f2ead21ddac3cbcf28
         cleanedImg = advanced_inpaint(img, mask)
         if cleanedImg.shape[:2] != (height, width):
             cleanedImg = cv2.resize(cleanedImg, (width, height))
@@ -89,11 +59,7 @@ def _process_single_frame(args):
     except Exception as e:
         return (frame_idx, False, str(e))
 
-<<<<<<< HEAD
 def process_video_optimized(video_path, output_dir, log_callback=None, progress_callback=None):
-=======
-def process_video_optimized(video_path, output_dir, log_callback=None, progress_callback=None, regions=None, method=None):
->>>>>>> 54b3dc6f2a539d8ffb7a63f2ead21ddac3cbcf28
     global PROCESSING_MODE, CHINESE_MODE
     def log(msg):
         if log_callback:
@@ -117,7 +83,6 @@ def process_video_optimized(video_path, output_dir, log_callback=None, progress_
         log("❌ Thông tin video không hợp lệ")
         vid.release()
         return False
-<<<<<<< HEAD
     if PROCESSING_MODE is None:
         method = get_processing_method()
         if method is None:
@@ -144,13 +109,6 @@ def process_video_optimized(video_path, output_dir, log_callback=None, progress_
             vid.release()
             return False
         log(f"✅ Đã chọn {len(regions)} vùng để xóa cho TOÀN BỘ VIDEO")
-=======
-    if method is not None and (method == 'auto' or regions is not None):
-        # OK, xử lý tiếp
-        pass
-    else:
-        raise RuntimeError('Vui lòng truyền regions và method từ GUI, không gọi GUI trong worker!')
->>>>>>> 54b3dc6f2a539d8ffb7a63f2ead21ddac3cbcf28
     if CHINESE_MODE:
         log("🇨🇳 Chế độ: TIẾNG TRUNG TỐI ƯU")
     elif CHINESE_MODE == False:
@@ -214,40 +172,20 @@ def process_video_optimized(video_path, output_dir, log_callback=None, progress_
         if test_video_writer(width, height, fps, test_output, codec):
             log(f"✅ Codec {codec} hoạt động tốt!")
             suffix = "_chinese_optimized" if CHINESE_MODE else "_optimized"
-<<<<<<< HEAD
             output_path = os.path.join(output_dir, f"{video_name}{suffix}{ext}")
             successful_codec = codec
             if os.path.exists(test_output):
                 os.remove(test_output)
-=======
-            output_path_candidate = os.path.join(output_dir, f"{video_name}{suffix}{ext}")
-            successful_codec = codec
-            if os.path.exists(test_output):
-                os.remove(test_output)
-            output_path = output_path_candidate
->>>>>>> 54b3dc6f2a539d8ffb7a63f2ead21ddac3cbcf28
             break
         else:
             log(f"❌ Codec {codec} không hoạt động")
             if os.path.exists(test_output):
                 os.remove(test_output)
-<<<<<<< HEAD
     if not successful_codec:
         log("❌ Không tìm thấy codec nào hoạt động")
         return False
     try:
         fourcc = cv2.VideoWriter_fourcc(*successful_codec)
-=======
-    if not successful_codec or not output_path:
-        log("❌ Không tìm thấy codec nào hoạt động")
-        return False
-    try:
-        fourcc_func = getattr(cv2, 'VideoWriter_fourcc', None)
-        if fourcc_func is not None:
-            fourcc = fourcc_func(*successful_codec)
-        else:
-            raise RuntimeError('Không tìm thấy VideoWriter_fourcc trong cv2!')
->>>>>>> 54b3dc6f2a539d8ffb7a63f2ead21ddac3cbcf28
         video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
         if not video_writer.isOpened():
             log("❌ Không thể tạo video writer")
@@ -268,11 +206,7 @@ def process_video_optimized(video_path, output_dir, log_callback=None, progress_
             if progress_callback and len(frame_paths) > 0:
                 update_progress(90 + (i / len(frame_paths)) * 10)  # 90-100% cho ghi video
         video_writer.release()
-<<<<<<< HEAD
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-=======
-        if output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
->>>>>>> 54b3dc6f2a539d8ffb7a63f2ead21ddac3cbcf28
             log(f"✅ Video đã được tạo: {os.path.getsize(output_path)} bytes")
         else:
             log("❌ File video không được tạo hoặc rỗng")
