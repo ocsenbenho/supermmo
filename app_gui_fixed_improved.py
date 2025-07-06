@@ -10,6 +10,7 @@ from PIL import Image, ImageTk
 import re
 import time
 from facebook_reel_scraper_selenium import get_facebook_reel_links_selenium
+from remove_music_utils import remove_music_from_video_smart
 
 # Import các module hiện có
 try:
@@ -431,6 +432,72 @@ class VideoRemoverApp(tk.Tk):
         self.insta_log_text = tk.Text(insta_scrollable, height=10, wrap='word', bg='#f7f7f7', font=bold_font)
         self.insta_log_text.pack(fill='both', expand=True, padx=20, pady=5)
         self.notebook.add(insta_frame, text='Tải Instagram Reel')
+
+        # Tab Remove Music
+        remove_music_frame = tk.Frame(self.notebook)
+        self.notebook.add(remove_music_frame, text='Remove Nhạc Nền')
+        self._init_remove_music_tab(remove_music_frame)
+
+        # Tab Tạo nhạc thư giãn
+        relax_music_frame = tk.Frame(self.notebook)
+        self.notebook.add(relax_music_frame, text='Tạo nhạc thư giãn')
+        self._init_relax_music_tab(relax_music_frame)
+
+    def _init_remove_music_tab(self, parent):
+        self.rm_input_path = tk.StringVar()
+        self.rm_output_path = tk.StringVar()
+        self.rm_keep_vocals = tk.BooleanVar(value=True)
+        tk.Label(parent, text='Chọn file video:').pack(pady=5)
+        frame1 = tk.Frame(parent)
+        frame1.pack(fill='x', padx=10)
+        tk.Entry(frame1, textvariable=self.rm_input_path, width=40).pack(side='left', padx=5)
+        tk.Button(frame1, text='Chọn...', command=self.rm_choose_input).pack(side='left')
+        tk.Label(parent, text='Chọn file lưu kết quả:').pack(pady=5)
+        frame2 = tk.Frame(parent)
+        frame2.pack(fill='x', padx=10)
+        tk.Entry(frame2, textvariable=self.rm_output_path, width=40).pack(side='left', padx=5)
+        tk.Button(frame2, text='Chọn...', command=self.rm_choose_output).pack(side='left')
+        tk.Checkbutton(parent, text='Chỉ giữ lại giọng nói (vocal)', variable=self.rm_keep_vocals).pack(pady=5)
+        tk.Button(parent, text='Remove nhạc nền', command=self.rm_start_remove_music, bg='#4CAF50', fg='white').pack(pady=10)
+        self.rm_log_text = tk.Text(parent, height=7, state='normal')
+        self.rm_log_text.pack(fill='both', padx=10, pady=5)
+
+    def rm_choose_input(self):
+        path = filedialog.askopenfilename(title='Chọn file video', filetypes=[('Video files', '*.mp4;*.mkv;*.avi;*.mov'), ('All files', '*.*')])
+        if path:
+            self.rm_input_path.set(path)
+            if not self.rm_output_path.get():
+                out = os.path.splitext(path)[0] + '_no_music.mp4'
+                self.rm_output_path.set(out)
+
+    def rm_choose_output(self):
+        path = filedialog.asksaveasfilename(title='Chọn file lưu', defaultextension='.mp4', filetypes=[('MP4 files', '*.mp4'), ('All files', '*.*')])
+        if path:
+            self.rm_output_path.set(path)
+
+    def rm_log(self, msg):
+        self.rm_log_text.config(state='normal')
+        self.rm_log_text.insert('end', msg + '\n')
+        self.rm_log_text.see('end')
+        self.rm_log_text.config(state='normal')
+
+    def rm_start_remove_music(self):
+        inp = self.rm_input_path.get()
+        outp = self.rm_output_path.get()
+        keep = self.rm_keep_vocals.get()
+        if not inp or not outp:
+            messagebox.showerror('Thiếu thông tin', 'Vui lòng chọn file video và file lưu kết quả!')
+            return
+        self.rm_log('🔄 Bắt đầu xử lý...')
+        threading.Thread(target=self._rm_run_remove_music, args=(inp, outp, keep), daemon=True).start()
+
+    def _rm_run_remove_music(self, inp, outp, keep):
+        try:
+            self.rm_log(f'🔄 Đang xử lý: {inp}')
+            result = remove_music_from_video_smart(inp, outp, keep)
+            self.rm_log(f'✅ Đã lưu file: {result}')
+        except Exception as e:
+            self.rm_log(f'❌ Lỗi: {e}')
 
     def choose_video_file(self):
         filetypes = [("Video files", "*.mp4 *.avi *.mov *.mkv *.wmv *.flv *.m4v *.webm")]
@@ -1148,7 +1215,7 @@ class VideoRemoverApp(tk.Tk):
         self.tiktok_log_text.insert('end', f'🔎 [Selenium] Đang lấy tối đa {num_links} link video từ: {profile_url}\n')
         self.tiktok_log_text.see('end')
         self.tiktok_get_links_btn.config(state='disabled')
-        self._tiktok_getting_links = True
+        _tiktok_getting_links = True
         thread = threading.Thread(target=self.get_all_tiktok_video_links_selenium_worker, args=(profile_url, cookies_file, chromedriver_path, num_links), daemon=True)
         thread.start()
 
@@ -1178,7 +1245,7 @@ class VideoRemoverApp(tk.Tk):
             self.tiktok_log_text.see('end')
         finally:
             self.tiktok_log_text.see('end')
-            self._tiktok_getting_links = False
+            _tiktok_getting_links = False
             self.tiktok_get_links_btn.config(state='normal')
             self.tiktok_check_ready()
 
@@ -1739,6 +1806,128 @@ class VideoRemoverApp(tk.Tk):
         finally:
             self.insta_download_btn.config(state='normal')
             self.insta_cancel_btn.config(state='disabled')
+
+    def _init_relax_music_tab(self, parent):
+        import tkinter as tk
+        from tkinter import ttk
+        bold_font = ('Arial', 11, 'bold')
+        # Tần số
+        freq_frame = tk.Frame(parent)
+        freq_frame.pack(pady=5, padx=10, anchor='w')
+        tk.Label(freq_frame, text='Tần số:', font=bold_font).pack(side='left')
+        self.relax_freq = tk.IntVar(value=432)
+        tk.Radiobutton(freq_frame, text='432 Hz', variable=self.relax_freq, value=432, font=bold_font).pack(side='left', padx=5)
+        tk.Radiobutton(freq_frame, text='416 Hz', variable=self.relax_freq, value=416, font=bold_font).pack(side='left', padx=5)
+        # Loại âm thanh
+        type_frame = tk.Frame(parent)
+        type_frame.pack(pady=5, padx=10, anchor='w')
+        tk.Label(type_frame, text='Loại âm thanh:', font=bold_font).pack(side='left')
+        self.relax_sound_type = tk.StringVar(value='sine')
+        tk.Radiobutton(type_frame, text='Sóng sine thuần', variable=self.relax_sound_type, value='sine', font=bold_font).pack(side='left', padx=5)
+        tk.Radiobutton(type_frame, text='Singing bowl (chuông ngân)', variable=self.relax_sound_type, value='singing_bowl', font=bold_font).pack(side='left', padx=5)
+        # Thời lượng
+        dur_frame = tk.Frame(parent)
+        dur_frame.pack(pady=5, padx=10, anchor='w')
+        tk.Label(dur_frame, text='Thời lượng (phút):', font=bold_font).pack(side='left')
+        self.relax_duration = tk.StringVar(value='10')
+        tk.Entry(dur_frame, textvariable=self.relax_duration, width=5, font=bold_font).pack(side='left', padx=5)
+        # Định dạng file
+        fmt_frame = tk.Frame(parent)
+        fmt_frame.pack(pady=5, padx=10, anchor='w')
+        tk.Label(fmt_frame, text='Định dạng:', font=bold_font).pack(side='left')
+        self.relax_format = tk.StringVar(value='wav')
+        fmt_combo = ttk.Combobox(fmt_frame, textvariable=self.relax_format, values=['wav', 'mp3'], width=5, font=bold_font, state='readonly')
+        fmt_combo.pack(side='left', padx=5)
+        # Sample rate
+        sr_frame = tk.Frame(parent)
+        sr_frame.pack(pady=5, padx=10, anchor='w')
+        tk.Label(sr_frame, text='Sample rate:', font=bold_font).pack(side='left')
+        self.relax_sr = tk.IntVar(value=44100)
+        sr_combo = ttk.Combobox(sr_frame, textvariable=self.relax_sr, values=[44100, 48000], width=7, font=bold_font, state='readonly')
+        sr_combo.pack(side='left', padx=5)
+        # Fade in/out
+        fade_frame = tk.Frame(parent)
+        fade_frame.pack(pady=5, padx=10, anchor='w')
+        tk.Label(fade_frame, text='Fade in (giây):', font=bold_font).pack(side='left')
+        self.relax_fadein = tk.StringVar(value='3')
+        tk.Entry(fade_frame, textvariable=self.relax_fadein, width=4, font=bold_font).pack(side='left', padx=2)
+        tk.Label(fade_frame, text='Fade out (giây):', font=bold_font).pack(side='left', padx=10)
+        self.relax_fadeout = tk.StringVar(value='3')
+        tk.Entry(fade_frame, textvariable=self.relax_fadeout, width=4, font=bold_font).pack(side='left', padx=2)
+        # White noise
+        wn_frame = tk.Frame(parent)
+        wn_frame.pack(pady=5, padx=10, anchor='w')
+        self.relax_add_wn = tk.BooleanVar(value=False)
+        tk.Checkbutton(wn_frame, text='Thêm white noise nhẹ', variable=self.relax_add_wn, font=bold_font).pack(side='left')
+        # Nút chọn nơi lưu
+        out_frame = tk.Frame(parent)
+        out_frame.pack(pady=5, padx=10, anchor='w')
+        tk.Label(out_frame, text='Lưu vào:', font=bold_font).pack(side='left')
+        self.relax_output_path = tk.StringVar()
+        tk.Entry(out_frame, textvariable=self.relax_output_path, width=40, font=bold_font).pack(side='left', padx=5)
+        tk.Button(out_frame, text='Chọn...', command=self.relax_choose_output).pack(side='left')
+        # Nút tạo nhạc
+        tk.Button(parent, text='Tạo nhạc', command=self.relax_start_generate, bg='#4CAF50', fg='white', font=bold_font).pack(pady=10)
+        # Log
+        self.relax_log_text = tk.Text(parent, height=7, state='normal')
+        self.relax_log_text.pack(fill='both', padx=10, pady=5)
+        # Đường dẫn file đã tạo
+        self.relax_result_label = tk.Label(parent, text='', fg='blue', font=bold_font)
+        self.relax_result_label.pack(pady=5)
+
+    def relax_choose_output(self):
+        import tkinter as tk
+        from tkinter import filedialog
+        fmt = self.relax_format.get()
+        path = filedialog.asksaveasfilename(title='Chọn nơi lưu nhạc', defaultextension=f'.{fmt}', filetypes=[('WAV', '*.wav'), ('MP3', '*.mp3'), ('All files', '*.*')])
+        if path:
+            self.relax_output_path.set(path)
+
+    def relax_log(self, msg):
+        self.relax_log_text.config(state='normal')
+        self.relax_log_text.insert('end', msg + '\n')
+        self.relax_log_text.see('end')
+        self.relax_log_text.config(state='normal')
+
+    def relax_start_generate(self):
+        import threading
+        self.relax_log('🔄 Đang tạo nhạc...')
+        self.relax_result_label.config(text='')
+        threading.Thread(target=self._relax_generate_worker, daemon=True).start()
+
+    def _relax_generate_worker(self):
+        try:
+            from relax_music_generator import generate_relax_music
+            freq = int(self.relax_freq.get())
+            duration_min = float(self.relax_duration.get())
+            duration_sec = int(duration_min * 60)
+            fmt = self.relax_format.get()
+            sr = int(self.relax_sr.get())
+            fadein = float(self.relax_fadein.get())
+            fadeout = float(self.relax_fadeout.get())
+            add_wn = self.relax_add_wn.get()
+            out_path = self.relax_output_path.get()
+            sound_type = self.relax_sound_type.get()
+            if not out_path:
+                self.relax_log('❌ Bạn phải chọn nơi lưu file nhạc!')
+                return
+            result = generate_relax_music(
+                output_path=out_path,
+                frequency=freq,
+                duration_sec=duration_sec,
+                sample_rate=sr,
+                file_format=fmt,
+                fade_in_sec=fadein,
+                fade_out_sec=fadeout,
+                add_white_noise=add_wn,
+                noise_level=0.01,
+                sound_type=sound_type
+            )
+            self.relax_log(f'✅ Đã tạo file: {result}')
+            self.relax_result_label.config(text=f'Đã lưu: {result}')
+        except Exception as e:
+            self.relax_log(f'❌ Lỗi: {e}')
+            self.relax_result_label.config(text='')
 
 def main():
     import platform

@@ -24,12 +24,3 @@ def find_all_chromedriver_on_disk(drives=None, names=None):
                     found.append(path)
     return found
 
-if __name__ == '__main__':
-    print("=== QUÉT TOÀN BỘ Ổ ĐĨA TÌM CHROMEDRIVER ===")
-    results = find_all_chromedriver_on_disk()
-    if results:
-        print("\nTìm thấy các chromedriver sau:")
-        for p in results:
-            print(f"  - {p}")
-    else:
-        print("Không tìm thấy chromedriver trên bất kỳ ổ đĩa nào!") 
